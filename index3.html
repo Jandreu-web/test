@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>AR Holograma + Profundidad + Zoom</title>
+
+<style>
+
+html, body {
+  margin: 0;
+  height: 100%;
+  background: #111;
+
+  display: flex;
+  justify-content: center;
+  align-items: center;
+
+  overflow: hidden;
+  font-family: Arial;
+}
+
+/* 📦 escena */
+#scene {
+  position: relative;
+
+  width: 80vw;
+  height: 80vh;
+
+  max-width: 700px;
+  max-height: 900px;
+
+  overflow: hidden;
+
+  border-radius: 18px;
+
+  background: black;
+}
+
+/* 🎥 cámara */
+#camera {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* 📡 scanlines */
+#scanlines {
+  position: absolute;
+
+  width: 100%;
+  height: 100%;
+
+  pointer-events: none;
+
+  background: repeating-linear-gradient(
+    to bottom,
+    rgba(0,255,255,0.05),
+    rgba(0,255,255,0.05) 1px,
+    transparent 2px,
+    transparent 4px
+  );
+
+  mix-blend-mode: screen;
+  opacity: 0.35;
+}
+
+/* 💃 bailarín */
+#dancer {
+  position: absolute;
+
+  width: 180px;
+
+  display: none;
+
+  transform: translate(-50%, -50%) scale(1);
+
+  pointer-events: none;
+
+  filter:
+    drop-shadow(0 0 8px rgba(0,255,255,0.9))
+    drop-shadow(0 0 25px rgba(0,255,255,0.6))
+    drop-shadow(0 0 45px rgba(0,255,255,0.3));
+
+  animation: flicker 0.15s infinite alternate;
+}
+
+@keyframes flicker {
+  0% { opacity: 0.92; }
+  100% { opacity: 1; }
+}
+
+/* 🌑 sombra */
+#shadow {
+  position: absolute;
+
+  width: 120px;
+  height: 30px;
+
+  background: rgba(0,0,0,0.5);
+
+  border-radius: 50%;
+
+  filter: blur(12px);
+
+  display: none;
+
+  pointer-events: none;
+}
+
+/* 🌍 suelo */
+#floorGlow {
+  position: absolute;
+
+  width: 160px;
+  height: 40px;
+
+  background: radial-gradient(
+    rgba(0,255,255,0.4),
+    transparent 70%
+  );
+
+  border-radius: 50%;
+
+  filter: blur(10px);
+
+  display: none;
+
+  pointer-events: none;
+}
+
+/* 🔘 botón */
+#btn {
+  position: fixed;
+
+  bottom: 20px;
+  left: 50%;
+
+  transform: translateX(-50%);
+
+  z-index: 10;
+
+  padding: 14px 20px;
+
+  border: none;
+  border-radius: 10px;
+
+  background: rgba(0,0,0,0.85);
+  color: white;
+
+  cursor: pointer;
+}
+
+/* 📝 texto */
+#info {
+  position: fixed;
+
+  top: 20px;
+  width: 100%;
+
+  text-align: center;
+
+  color: white;
+
+  font-size: 18px;
+
+  text-shadow: 0 0 10px black;
+}
+
+</style>
+</head>
+
+<body>
+
+<div id="scene">
+
+  <video id="camera" autoplay muted playsinline></video>
+
+  <div id="scanlines"></div>
+
+  <div id="floorGlow"></div>
+
+  <div id="shadow"></div>
+
+  <video id="dancer"
+         src="dancer1.webm"
+         loop
+         muted
+         playsinline
+         preload="auto">
+  </video>
+
+</div>
+
+<div id="info">📱 Click = mover | Rueda = zoom</div>
+
+<button id="btn">💃 Activar Holograma</button>
+
+<audio id="music" src="music.mp3" loop></audio>
+
+<script>
+
+const scene = document.getElementById("scene")
+const camera = document.getElementById("camera")
+const dancer = document.getElementById("dancer")
+const shadow = document.getElementById("shadow")
+const floorGlow = document.getElementById("floorGlow")
+const btn = document.getElementById("btn")
+const music = document.getElementById("music")
+
+let wheelScale = 1
+
+// 🎥 cámara
+navigator.mediaDevices.getUserMedia({ video: true })
+  .then(stream => {
+    camera.srcObject = stream
+    camera.play()
+  })
+
+// 💃 activar
+btn.onclick = async () => {
+
+  const rect = scene.getBoundingClientRect()
+
+  setPosition(rect.width / 2, rect.height / 2)
+
+  dancer.style.display = "block"
+  shadow.style.display = "block"
+  floorGlow.style.display = "block"
+
+  dancer.play().catch(()=>{})
+  music.currentTime = 0
+  music.play().catch(()=>{})
+
+  btn.style.display = "none"
+  info.style.display = "none"
+}
+
+// 📍 PROFUNDIDAD + ZOOM COMBINADOS
+function setPosition(x, y) {
+
+  const rect = scene.getBoundingClientRect()
+
+  // profundidad (0 arriba → 1 abajo)
+  let depth = y / rect.height
+
+  // escala por profundidad (curva AR)
+  let baseScale = 0.25 + Math.pow(depth, 1.8) * 3.2
+
+  let finalScale = baseScale * wheelScale
+
+  dancer.style.left = x + "px"
+  dancer.style.top = y + "px"
+
+  dancer.style.transform = `translate(-50%, -50%) scale(${finalScale})`
+
+  shadow.style.left = x + "px"
+  shadow.style.top = (y + 50) + "px"
+
+  floorGlow.style.left = x + "px"
+  floorGlow.style.top = (y + 70) + "px"
+}
+
+// 📍 click mover
+scene.addEventListener("click", (e) => {
+
+  const rect = scene.getBoundingClientRect()
+
+  const x = e.clientX - rect.left
+  const y = e.clientY - rect.top
+
+  setPosition(x, y)
+})
+
+// 🔍 zoom con rueda
+scene.addEventListener("wheel", (e) => {
+
+  e.preventDefault()
+
+  wheelScale += e.deltaY * -0.001
+  wheelScale = Math.min(Math.max(0.5, wheelScale), 3)
+
+  const rect = scene.getBoundingClientRect()
+
+  // reaplica última lógica de posición (sin moverlo)
+  const x = parseFloat(dancer.style.left || rect.width/2)
+  const y = parseFloat(dancer.style.top || rect.height/2)
+
+  setPosition(x, y)
+
+}, { passive: false })
+
+</script>
+
+</body>
+</html>
