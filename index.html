@@ -2,43 +2,34 @@
 <html>
 <head>
 <meta charset="utf-8">
-<title>AR Pokémon GO Fake - Clean Zoom Fix</title>
+<title>AR Pokémon GO Fake - Wheel + Pinch Fix</title>
 
 <style>
 
 html, body {
   margin: 0;
   height: 100%;
-  background: #111;
-
-  display: flex;
-  justify-content: center;
-  align-items: center;
-
   overflow: hidden;
+  background: black;
   font-family: Arial;
 }
 
+/* 🌍 escena full screen */
 #scene {
-  position: relative;
+  position: fixed;
+  top: 0;
+  left: 0;
 
-  width: 80vw;
-  height: 80vh;
-
-  max-width: 700px;
-  max-height: 900px;
+  width: 100vw;
+  height: 100vh;
 
   overflow: hidden;
-
-  border-radius: 18px;
-
-  background: black;
 }
 
-/* 🎥 cámara (NO escala nunca) */
+/* 🎥 cámara */
 #camera {
-  width: 100%;
-  height: 100%;
+  width: 100vw;
+  height: 100vh;
   object-fit: cover;
 }
 
@@ -143,7 +134,7 @@ html, body {
   cursor: pointer;
 }
 
-/* 📝 texto */
+/* 📝 info */
 #info {
   position: fixed;
 
@@ -181,7 +172,7 @@ html, body {
 
 </div>
 
-<div id="info">📱 Click = colocar | Rueda = zoom bailarín</div>
+<div id="info">📱 Click = colocar | Wheel / Pinch = zoom bailarín</div>
 <button id="btn">💃 Activar AR</button>
 
 <audio id="music" src="music.mp3" loop></audio>
@@ -195,7 +186,7 @@ const shadow = document.getElementById("shadow")
 const btn = document.getElementById("btn")
 const music = document.getElementById("music")
 
-// 🧠 zoom SOLO del bailarín
+// 🔍 zoom SOLO bailarín
 let dancerZoom = 1
 
 // 🎥 cámara trasera
@@ -234,17 +225,15 @@ btn.onclick = async () => {
   info.style.display = "none"
 }
 
-// 📍 AR fake (profundidad)
+// 📍 posición AR fake
 function setPosition(x, y) {
 
   const rect = scene.getBoundingClientRect()
 
   let depth = y / rect.height
 
-  // 🔥 escala base AR
   let baseScale = 1.0 + Math.pow(depth, 1.7) * 5.0
 
-  // 🔥 SOLO aquí entra el zoom del usuario
   let finalScale = baseScale * dancerZoom
 
   dancer.style.left = x + "px"
@@ -257,7 +246,7 @@ function setPosition(x, y) {
   shadow.style.top = (y + 50) + "px"
 }
 
-// 📍 click coloca bailarín
+// 📍 click coloca
 scene.addEventListener("click", (e) => {
 
   const rect = scene.getBoundingClientRect()
@@ -268,13 +257,12 @@ scene.addEventListener("click", (e) => {
   )
 })
 
-// 🔍 zoom SOLO bailarín
+// 🖱️ WHEEL (PC zoom bailarín)
 scene.addEventListener("wheel", (e) => {
 
   e.preventDefault()
 
   dancerZoom += e.deltaY * -0.001
-
   dancerZoom = Math.min(Math.max(0.5, dancerZoom), 6)
 
   const rect = scene.getBoundingClientRect()
@@ -285,6 +273,42 @@ scene.addEventListener("wheel", (e) => {
   )
 
 }, { passive: false })
+
+// 📱 PINCH (móvil zoom bailarín)
+let lastDist = null
+
+scene.addEventListener("touchmove", (e) => {
+
+  if (e.touches.length === 2) {
+
+    e.preventDefault()
+
+    const dx = e.touches[0].clientX - e.touches[1].clientX
+    const dy = e.touches[0].clientY - e.touches[1].clientY
+
+    const dist = Math.sqrt(dx*dx + dy*dy)
+
+    if (lastDist !== null) {
+
+      dancerZoom += (dist - lastDist) * 0.005
+      dancerZoom = Math.min(Math.max(0.5, dancerZoom), 6)
+
+      const rect = scene.getBoundingClientRect()
+
+      setPosition(
+        parseFloat(dancer.style.left || rect.width/2),
+        parseFloat(dancer.style.top || rect.height/2)
+      )
+    }
+
+    lastDist = dist
+  }
+
+}, { passive: false })
+
+scene.addEventListener("touchend", () => {
+  lastDist = null
+})
 
 </script>
 
